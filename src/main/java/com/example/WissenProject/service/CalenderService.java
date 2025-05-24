@@ -4,6 +4,7 @@ import com.example.WissenProject.dto.CalendarDayInfo;
 import com.example.WissenProject.entity.Event;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -29,14 +30,21 @@ public class CalenderService {
         Map<LocalDate, CalendarDayInfo> calendar = new LinkedHashMap<>();
 
         while (!start.isAfter(end)) {
-            boolean isHoliday = holidays.containsKey(start);
-            String holidayName = holidays.get(start);
-            List<Event> dayEvents = events.getOrDefault(start, new ArrayList<>());
+            boolean isWeekend = start.getDayOfWeek() == DayOfWeek.SATURDAY || start.getDayOfWeek() == DayOfWeek.SUNDAY;
+            boolean isHoliday = holidays.containsKey(start) || isWeekend;
 
+            String holidayName = holidays.get(start);
+            if (holidayName == null && isWeekend) {
+                holidayName = start.getDayOfWeek() == DayOfWeek.SATURDAY ? "Saturday" : "Sunday";
+            }
+
+            List<Event> dayEvents = events.getOrDefault(start, new ArrayList<>());
             calendar.put(start, new CalendarDayInfo(isHoliday, holidayName, dayEvents));
+
             start = start.plusDays(1);
         }
 
         return calendar;
     }
+
 }
