@@ -15,6 +15,12 @@ public class Holiday {
     private String name;
     private LocalDate date;
 
+    public Holiday(UUID id, String name, LocalDate date) {
+        this.id = id;
+        this.name = name;
+        this.date = date;
+    }
+
     public UUID getId() {
         return id;
     }
