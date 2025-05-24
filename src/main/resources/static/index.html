@@ -165,16 +165,23 @@
     loadData();
     function showNextItems() {
   const today = new Date().toISOString().split("T")[0];
+  const todayDate = new Date(today);
 
   // Next Holiday
   const sortedHolidays = Object.keys(holidayMap)
     .filter(date => date >= today)
     .sort();
 
-  const nextHoliday = sortedHolidays.length ?
-    `${sortedHolidays[0]} - ${holidayMap[sortedHolidays[0]]}` : "No upcoming holidays.";
+  let nextHolidayText = "No upcoming holidays.";
+  if (sortedHolidays.length) {
+    const nextHolidayDate = sortedHolidays[0];
+    const holidayName = holidayMap[nextHolidayDate];
+    const holidayDateObj = new Date(nextHolidayDate);
+    const diffDays = Math.ceil((holidayDateObj - todayDate) / (1000 * 60 * 60 * 24));
+    nextHolidayText = `${nextHolidayDate} - ${holidayName} (${diffDays} day${diffDays > 1 ? 's' : ''} left)`;
+  }
 
-  document.getElementById('nextHoliday').innerHTML = `🎉 <strong>Next Holiday:</strong> ${nextHoliday}`;
+  document.getElementById('nextHoliday').innerHTML = `🎉 <strong>Next Holiday:</strong> ${nextHolidayText}`;
 
   // Next Event
   const eventDates = Object.keys(eventMap)
@@ -184,13 +191,15 @@
   let nextEventInfo = "No upcoming events.";
   if (eventDates.length) {
     const date = eventDates[0];
-    const events = eventMap[date];
-    const event = events[0]; // pick the first one
-    nextEventInfo = `${date} - ${event.title}: ${event.description || 'No description'}`;
+    const event = eventMap[date][0];
+    const eventDateObj = new Date(date);
+    const diffDays = Math.ceil((eventDateObj - todayDate) / (1000 * 60 * 60 * 24));
+    nextEventInfo = `${date} - ${event.title}: ${event.description || 'No description'} (${diffDays} day${diffDays > 1 ? 's' : ''} left)`;
   }
 
   document.getElementById('nextEvent').innerHTML = `📌 <strong>Next Event:</strong> ${nextEventInfo}`;
 }
+
 
     document.getElementById('holidayForm').addEventListener('submit', async function (e) {
   e.preventDefault();
