@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Year Calendar with Details</title>
+    <style>
+        body {
+          font-family: Arial, sans-serif;
+          padding: 20px;
+        }
+        .calendar-container {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 20px;
+        }
+        .month {
+          width: 300px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        th {
+          background-color: #eee;
+        }
+        td {
+          text-align: center;
+          height: 30px;
+          border: 1px solid #ccc;
+          cursor: pointer;
+        }
+        .holiday {
+          background-color: lightgreen;
+        }
+        .event {
+          background-color: #dabfff;
+        }
+        .both {
+          background: linear-gradient(135deg, lightgreen 50%, #dabfff 50%);
+        }
+        #details {
+          margin-top: 30px;
+          padding: 15px;
+          border: 1px solid #ccc;
+          background-color: #fafafa;
+        }
+    </style>
+</head>
+<body>
+
+<h1>📆 Year Calendar - 2025</h1>
+<div id="nextSection" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background: #f3f3f3;">
+    <h2>Upcoming</h2>
+    <p id="nextHoliday">🎉 <strong>Next Holiday:</strong> Loading...</p>
+    <p id="nextEvent">📌 <strong>Next Event:</strong> Loading...</p>
+</div>
+<div class="calendar-container" id="calendar"></div>
+
+<div id="details">
+    <h2>Date Info</h2>
+    <div id="detail-content">Click a date to see holiday or event details.</div>
+</div>
+<h2>Add New Holiday</h2>
+<form id="holidayForm">
+    <input type="date" id="holidayDate" required>
+    <input type="text" id="holidayName" placeholder="Holiday Name" required>
+    <button type="submit">Add Holiday</button>
+</form>
+
+<h2>Add New Event</h2>
+<form id="eventForm">
+    <input type="date" id="eventDate" required>
+    <input type="text" id="eventTitle" placeholder="Event Title" required>
+    <input type="text" id="eventDescription" placeholder="Description">
+    <button type="submit">Add Event</button>
+</form>
+
+<script>
+    const calendarContainer = document.getElementById('calendar');
+    const detailContent = document.getElementById('detail-content');
+    const year = 2025;
+
+    let holidayMap = {};
+    let eventMap = {};
+
+    async function loadData() {
+      const [holidays, events] = await Promise.all([
+        fetch("http://localhost:8080/api/holidays").then(r => r.json()),
+        fetch("http://localhost:8080/api/events").then(r => r.json())
+      ]);
+
+      holidays.forEach(h => {
+        holidayMap[h.date] = h.name;
+      });
+
+      events.forEach(e => {
+        const date = e.dateTime.split("T")[0];
+        if (!eventMap[date]) eventMap[date] = [];
+        eventMap[date].push(e);
+      });
+
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      for (let month = 0; month < 12; month++) {
+        const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' });
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        let table = `<div class="month"><h3>${monthName}</h3><table>
+          <thead><tr>
+            <th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th>
+            <th>Thu</th><th>Fri</th><th>Sat</th>
+          </tr></thead><tbody><tr>`;
+
+        let day = 1;
+        for (let i = 0; i < 42; i++) {
+          if (i < firstDay || day > daysInMonth) {
+            table += "<td></td>";
+          } else {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const isHoliday = holidayMap[dateStr];
+            const isEvent = eventMap[dateStr];
+
+            let cls = "";
+            if (isHoliday && isEvent) cls = "both";
+            else if (isHoliday) cls = "holiday";
+            else if (isEvent) cls = "event";
+
+            table += `<td class="${cls}" onclick="showDetails('${dateStr}')">${day}</td>`;
+            day++;
+          }
+          if ((i + 1) % 7 === 0 && day <= daysInMonth) table += "</tr><tr>";
+        }
+
+        table += "</tr></tbody></table></div>";
+        calendarContainer.innerHTML += table;
+      }
+    }
+
+    window.showDetails = function(dateStr) {
+      const holiday = holidayMap[dateStr];
+      const events = eventMap[dateStr];
+
+      let html = `<strong>${dateStr}</strong><br><br>`;
+      if (holiday) {
+        html += `<p>🎉 <strong>Holiday:</strong> ${holiday}</p>`;
+      }
+      if (events && events.length > 0) {
+        html += `<p>📌 <strong>Event(s):</strong></p><ul>`;
+        events.forEach(e => {
+          html += `<li><strong>${e.title}</strong>: ${e.description || "No description"}</li>`;
+        });
+        html += `</ul>`;
+      }
+      if (!holiday && (!events || events.length === 0)) {
+        html += `<p>No holidays or events on this day.</p>`;
+      }
+
+      detailContent.innerHTML = html;
+    }
+
+    loadData();
+    function showNextItems() {
+  const today = new Date().toISOString().split("T")[0];
+
+  // Next Holiday
+  const sortedHolidays = Object.keys(holidayMap)
+    .filter(date => date >= today)
+    .sort();
+
+  const nextHoliday = sortedHolidays.length ?
+    `${sortedHolidays[0]} - ${holidayMap[sortedHolidays[0]]}` : "No upcoming holidays.";
+
+  document.getElementById('nextHoliday').innerHTML = `🎉 <strong>Next Holiday:</strong> ${nextHoliday}`;
+
+  // Next Event
+  const eventDates = Object.keys(eventMap)
+    .filter(date => date >= today)
+    .sort();
+
+  let nextEventInfo = "No upcoming events.";
+  if (eventDates.length) {
+    const date = eventDates[0];
+    const events = eventMap[date];
+    const event = events[0]; // pick the first one
+    nextEventInfo = `${date} - ${event.title}: ${event.description || 'No description'}`;
+  }
+
+  document.getElementById('nextEvent').innerHTML = `📌 <strong>Next Event:</strong> ${nextEventInfo}`;
+}
+
+    document.getElementById('holidayForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const date = document.getElementById('holidayDate').value;
+  const name = document.getElementById('holidayName').value;
+
+  const res = await fetch("http://localhost:8080/api/holidays", {
+    method: "POST",
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date, name })
+  });
+
+  if (res.ok) {
+    alert("Holiday added!");
+    calendarContainer.innerHTML = "";
+    holidayMap = {};
+    eventMap = {};
+    loadData();
+  } else {
+    alert("Failed to add holiday.");
+  }
+});
+
+document.getElementById('eventForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const date = document.getElementById('eventDate').value;
+  const title = document.getElementById('eventTitle').value;
+  const description = document.getElementById('eventDescription').value;
+
+  const dateTime = date + "T00:00:00";
+
+  const res = await fetch("http://localhost:8080/api/events", {
+    method: "POST",
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, description, dateTime })
+  });
+
+  if (res.ok) {
+    alert("Event added!");
+    calendarContainer.innerHTML = "";
+    holidayMap = {};
+    eventMap = {};
+    loadData();
+  } else {
+    alert("Failed to add event.");
+  }
+});
+showNextItems();
+</script>
+
+</body>
+</html>
